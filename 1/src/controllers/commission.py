@@ -1,24 +1,19 @@
 import rsa
-from controllers import VoterController
-from models import Candidate, VoteRecord, SignedVoteRecord
+from controllers import VoterController, VoterDebugMode
+from models import Candidate, VoteRecordPayload, SignedVoteRecord
 
 class CommissionController:
 
-    _ENABLE_FAKE_SIGNATURE = False
-    _ENABLE_SIGNATURE_VALIDATION = True
-    _ENABLE_GAMMA_ENCRYPTION_VALIDATION = True
-
-    def __init__(self, candidates: list['Candidate']) -> None:
-        self._candidates = candidates
+    def __init__(self, candidates: list[Candidate]) -> None:
         self._gamma_key = "1Q2W3E".encode()
-        self._voted_public_keys = []
-        self._validated_public_keys = []
-        self._results = {candidate.get_id(): 0 for candidate in self._candidates}
+        self._vote_records = {}
+        self._verified_voters_keys = []
+        self._results = {candidate.get_id(): 0 for candidate in candidates}
 
     def get_gamma_key(self) -> bytes:
         return self._gamma_key
 
-    def process_voter(self, voter: 'VoterController', candidate: 'Candidate') -> None:
+    def process_voter(self, voter: VoterController, candidate: Candidate) -> None:
         if voter is None:
             raise ValueError("voter is None")
 
@@ -27,26 +22,38 @@ class CommissionController:
 
         print(f"Processing voter #{voter.get_id()} | ", end = '')
 
+        if self._verify_voter(voter):
+            vote_record = self._create_protocol(voter, candidate)
+            self.register_vote(vote_record, voter.get_public_key())
+
+    def _verify_voter(self, voter: VoterController) -> bool:
         if not voter.get_is_able_to_vote():
             print(f"ABORTED. Voter is not able to vote.")
-            return
+            return False
 
-        if voter.get_public_key() in self._voted_public_keys:
+        if voter.get_public_key() in self._vote_records:
             print(f"ABORTED. Voter has already voted.")
-            return
+            return False
 
+        self._verified_voters_keys.append(voter.get_public_key())
+        return True
+
+    def _create_protocol(self, voter: VoterController, candidate: Candidate) -> VoteRecordPayload | SignedVoteRecord:
         vote_record = voter.vote(candidate)
-        self._validated_public_keys.append(voter.get_public_key())
 
-        if self._ENABLE_SIGNATURE_VALIDATION:
+        if voter.get_debug_mode() is VoterDebugMode.VOTE_RECORD_SUBSTITUTION:
+            FAKE_CANDIDATE_ID = 0
+            vote_record.set_candidate_id(FAKE_CANDIDATE_ID)
+
+        if voter.get_debug_mode() is not VoterDebugMode.MISSING_SIGNATURE:
             vote_record = voter.sign(vote_record)
 
-        if self._ENABLE_GAMMA_ENCRYPTION_VALIDATION:
+        if voter.get_debug_mode() is not VoterDebugMode.MISSING_GAMMA_ENCRYPTION:
             vote_record.toggle_gamma_encryption(self._gamma_key)
 
-        self.register_vote(vote_record)
+        return vote_record
 
-    def register_vote(self, signed_vote_record: 'SignedVoteRecord') -> None:
+    def register_vote(self, signed_vote_record: SignedVoteRecord, public_key: rsa.PublicKey) -> None:
         if signed_vote_record is None:
             raise ValueError("signed_vote_record is None")
 
@@ -54,29 +61,30 @@ class CommissionController:
             print("ABORTED. Vote record must be encrypted.")
             return
 
-        if isinstance(signed_vote_record, VoteRecord):
+        if isinstance(signed_vote_record, VoteRecordPayload):
             print("ABORTED. Vote record must be signed.")
             return
 
-        if signed_vote_record.get_vote_record().get_public_key() not in self._validated_public_keys:
+        if public_key not in self._verified_voters_keys:
             print("ABORTED. Voter must be validated.")
             return
 
         signed_vote_record.toggle_gamma_encryption(self._gamma_key)
-        vote_record = signed_vote_record.get_vote_record()
+
+        if hash(signed_vote_record.get_vote_record()) != signed_vote_record.get_vote_record().get_control_hash_sum():
+            print("ABORTED. Hash control sum check failed.")
+            return
 
         try:
-            if self._ENABLE_FAKE_SIGNATURE:
-                rsa.verify(int.to_bytes(vote_record.get_candidate_id()), bytes(), vote_record.get_public_key())
-            else:
-                rsa.verify(int.to_bytes(vote_record.get_candidate_id()), signed_vote_record.get_signature(), vote_record.get_public_key())
+            rsa.verify(int.to_bytes(signed_vote_record.get_vote_record().get_candidate_id()), signed_vote_record.get_signature(), public_key)
         except rsa.VerificationError:
             print(f"ABORTED. Signature verification failed.")
             return
 
+        self._verified_voters_keys.remove(public_key)
         self._results[signed_vote_record.get_vote_record().get_candidate_id()] += 1
-        self._voted_public_keys.append(signed_vote_record.get_vote_record().get_public_key())
-        self._validated_public_keys.remove(signed_vote_record.get_vote_record().get_public_key())
+        self._vote_records[public_key] = signed_vote_record.get_vote_record().get_candidate_id()
+
         print(f"DONE. Registered vote for candidate #{signed_vote_record.get_vote_record().get_candidate_id()}.")
 
     def print_results(self) -> None:

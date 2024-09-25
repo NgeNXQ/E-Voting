@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-class GammaEncryptor(ABC):
+class IGammaEncryptor(ABC):
 
     @abstractmethod
     def get_is_encrypted(self) -> bool:

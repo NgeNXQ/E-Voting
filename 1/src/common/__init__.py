@@ -1,1 +1,1 @@
-from .gamma_encryptor import GammaEncryptor
+from .gamma_encryptor import IGammaEncryptor

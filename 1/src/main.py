@@ -1,5 +1,5 @@
-from models import Candidate, VoteRecord
-from controllers import VoterController, CommissionController
+from models import Candidate
+from controllers import VoterController, VoterDebugMode, CommissionController
 
 if __name__ == "__main__":
     candidate_1 = Candidate(1)
@@ -8,11 +8,11 @@ if __name__ == "__main__":
 
     voter_1 = VoterController(1, True)
     voter_2 = VoterController(2, True)
-    voter_3 = VoterController(3, True)
+    voter_3 = VoterController(3, True, VoterDebugMode.MISSING_SIGNATURE)
     voter_4 = VoterController(4, True)
-    voter_5 = VoterController(5, True)
+    voter_5 = VoterController(5, True, VoterDebugMode.VOTE_RECORD_SUBSTITUTION)
     voter_6 = VoterController(6, True)
-    voter_7 = VoterController(7, True)
+    voter_7 = VoterController(7, True, VoterDebugMode.MISSING_GAMMA_ENCRYPTION)
     voter_8 = VoterController(8, True)
     voter_9 = VoterController(9, False)
 
@@ -29,9 +29,10 @@ if __name__ == "__main__":
 
     voter_0 = VoterController(0, True)
     print(f"voter #{voter_0.get_id()} ", end = '')
-    vote_record_0 = VoteRecord(voter_0.get_public_key(), candidate_1.get_id())
+
+    vote_record_0 = voter_0.vote(candidate_1)
     signed_vote_record_0 = voter_0.sign(vote_record_0)
     signed_vote_record_0.toggle_gamma_encryption(commission.get_gamma_key())
-    commission.register_vote(signed_vote_record_0)
+    commission.register_vote(signed_vote_record_0, voter_0.get_public_key())
 
     commission.print_results()

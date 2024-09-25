@@ -1,2 +1,2 @@
-from .voter import VoterController
+from .voter import VoterController, VoterDebugMode
 from .commission import CommissionController
