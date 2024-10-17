@@ -197,4 +197,4 @@ class CommissionController:
             print("\nDRAW between ", end='')
 
             for candidate in winners:
-                print(f"candidate #{candidate} wtih {max_votes} vote(s) ", end = '')
+                print(f"candidate #{candidate} with {max_votes} vote(s) ", end = '')

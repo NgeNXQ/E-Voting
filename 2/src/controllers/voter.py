@@ -26,18 +26,18 @@ class VoterController:
         cluster = VotePoolsCluster(VotePool(vote_payloads), size)
         return cluster
 
-    def process_commission_response(self, signed_vote_pool: VotePool, candidate: Candidate, comission_public_key: rsa.PublicKey) -> None:
+    def process_commission_response(self, signed_vote_pool: VotePool, candidate: Candidate, commission_public_key: rsa.PublicKey) -> None:
         if signed_vote_pool is None:
             return None
 
         signed_vote = signed_vote_pool.get_vote_payload(candidate.get_id() - 1)
 
         try:
-            rsa.verify(f"{hash(signed_vote.get_vote_payload())}".encode(), signed_vote.get_signature(), comission_public_key)
+            rsa.verify(f"{hash(signed_vote.get_vote_payload())}".encode(), signed_vote.get_signature(), commission_public_key)
         except rsa.VerificationError:
             print(f"{Fore.RED}FAILURE{Style.RESET_ALL} | Invalid signature")
             return
 
         signed_vote.get_vote_payload().unmask()
-        signed_vote.encrypt(comission_public_key)
+        signed_vote.encrypt(commission_public_key)
         return signed_vote
