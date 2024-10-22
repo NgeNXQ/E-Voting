@@ -20,28 +20,18 @@ class ElectionCommissionController:
         if dsa_public_key is None:
             raise ValueError("dsa_public_key cannot be None")
 
-        decrypted_vote = VoteCipherUtility.decrypt(vote, elgamal_private_key)
+        try:
+            decrypted_vote = VoteCipherUtility.decrypt(vote, elgamal_private_key)
+        except Exception:
+            print(f"{Fore.RED}FAILURE{Style.RESET_ALL} (Invalid encryption)")
+            return
 
         print(f"{Fore.YELLOW}PROCESSING{Style.RESET_ALL} #{decrypted_vote.get_voter_registration_id()} | ", end = '')
 
-        print(f"{Fore.YELLOW}VOTE_VALIDATION{Style.RESET_ALL}: ", end = '')
+        if not self._verify_signature(vote, dsa_public_key):
+            return
 
-        if decrypted_vote.get_voter_registration_id() not in self._voters:
-            print(f"{Fore.RED}FAILURE{Style.RESET_ALL} (Invalid voter)")
-            return False
-
-        if vote.get_vote_payload().get_candidate_id() not in self._results.keys():
-            print(f"{Fore.RED}FAILURE{Style.RESET_ALL} (Invalid candidate)")
-            return False
-
-        print(f"{Fore.GREEN}SUCCESS{Style.RESET_ALL} | ", end = '')
-
-        print(f"{Fore.YELLOW}SIGNATURE_VALIDATION{Style.RESET_ALL}: ", end = '')
-
-        try:
-            dsa_public_key.verify(decrypted_vote.get_signature(), hash(decrypted_vote.get_vote_payload().get_candidate_id()).to_bytes(length = 32), hashes.SHA256())
-        except Exception:
-            print(f"{Fore.RED}FAILURE{Style.RESET_ALL} (Invalid signature)")
+        if not self._validate_vote(decrypted_vote):
             return
 
         print(f"{Fore.GREEN}SUCCESS{Style.RESET_ALL} | ", end = '')
@@ -51,6 +41,32 @@ class ElectionCommissionController:
         self._public_results[decrypted_vote.get_voter_custom_id()] = decrypted_vote.get_vote_payload().get_candidate_id()
 
         print(f"{Fore.YELLOW}DONE{Style.RESET_ALL}")
+
+    def _verify_signature(self, vote: VoteDTO, dsa_public_key: dsa.DSAPublicKey) -> bool:
+        print(f"{Fore.YELLOW}SIGNATURE_VALIDATION{Style.RESET_ALL}: ", end = '')
+
+        try:
+            dsa_public_key.verify(vote.get_signature(), hash(vote.get_vote_payload().get_candidate_id()).to_bytes(length = 32), hashes.SHA256())
+        except Exception:
+            print(f"{Fore.RED}FAILURE{Style.RESET_ALL} (Invalid signature)")
+            return False
+
+        print(f"{Fore.GREEN}SUCCESS{Style.RESET_ALL} | ", end = '')
+        return True
+
+    def _validate_vote(self, vote: VoteDTO) -> bool:
+        print(f"{Fore.YELLOW}VOTE_VALIDATION{Style.RESET_ALL}: ", end = '')
+
+        if vote.get_voter_registration_id() not in self._voters:
+            print(f"{Fore.RED}FAILURE{Style.RESET_ALL} (Invalid voter)")
+            return False
+
+        if vote.get_vote_payload().get_candidate_id() not in self._results.keys():
+            print(f"{Fore.RED}FAILURE{Style.RESET_ALL} (Invalid candidate)")
+            return False
+
+        print(f"{Fore.GREEN}SUCCESS{Style.RESET_ALL} | ", end = '')
+        return True
 
     def print_results(self) -> None:
         print(f"\n{Fore.YELLOW}RESULTS{Style.RESET_ALL}")
