@@ -1,0 +1,1 @@
+from .vote_protocol import VoteProtocolError
