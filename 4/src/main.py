@@ -34,7 +34,7 @@ def main() -> None:
     voter_0.decrypt_internal_part(votes)
     voter_1.decrypt_internal_part(votes)
     voter_2.decrypt_internal_part(votes)
-    # voter_2.decrypt_internal_part([vote_0, vote_1, vote_2, deepcopy(vote_2), vote_3])       # Extra vote
+    # voter_2.decrypt_internal_part([vote_1, vote_2, deepcopy(vote_2), vote_3])               # Vote duplication & removal
     voter_3.decrypt_internal_part(votes)
 
     print_results([candidate_1, candidate_2], votes)
@@ -50,7 +50,7 @@ def print_results(candidates: list[Candidate], votes: list[VoteOnion]) -> None:
     max_votes = sorted_results[0][1] if sorted_results else 0
 
     for candidate, count in sorted_results:
-        print(f"Candidate #{candidate}: {count} vote(s)")
+        print(f"\nCandidate #{candidate}: {count} vote(s)", end = '')
 
     winners = [candidate for candidate, count in sorted_results if count == max_votes]
 

@@ -78,6 +78,7 @@ class VoterController:
             raise VoteProtocolError("Fraud attempt has been detected.")
 
         random.shuffle(votes)
+        print(f"voter #{self._id} has removed external encryption layer.")
 
     def decrypt_internal_part(self, votes: list[VoteOnion]) -> None:
         for vote in votes:
@@ -91,6 +92,8 @@ class VoterController:
 
         for voter in other_voters:
             voter.verify_signatures(votes, self._elgamal_public_key)
+
+        print(f"voter #{self._id} has removed internal encryption layer.")
 
     def _validate_votes(self, votes: list[VoteOnion]) -> bool:
         if votes is None:
@@ -123,3 +126,5 @@ class VoterController:
 
         if not self._validate_votes(votes):
             raise VoteProtocolError("Fraud attempt has been detected.")
+
+        print(f"voter #{self._id} has validated signatures.")
