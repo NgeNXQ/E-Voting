@@ -1,7 +1,6 @@
 import random
 from collections import Counter
 import rsa
-from cryptography.hazmat.primitives.asymmetric import dsa
 from helpers.codicons import *
 from .voter import VoterController
 from models import User, Candidate, PartialVote
@@ -11,12 +10,10 @@ class CentralCommissionController:
 
     def __init__(self) -> 'CentralCommissionController':
         self._voters: dict[User, int] = dict()
+        self._results: dict[int, int] = dict()
         self._candidates: dict[User, int] = dict()
-        self._final_results: dict[int, int] = dict()
         self._rsa_public_key, self._rsa_private_key = rsa.newkeys(nbits = 1024)
         self._election_commissions: list[ElectionCommissionController] = list()
-        self._dsa_private_key: dsa.DSAPrivateKey = dsa.generate_private_key(key_size = 1024)
-        self._dsa_public_key: dsa.DSAPublicKey = self._dsa_private_key.public_key()
 
     def get_voters(self) -> list[int]:
         return list(self._voters.values())
@@ -27,9 +24,6 @@ class CentralCommissionController:
     def get_rsa_public_key(self) -> rsa.PublicKey:
         return self._rsa_public_key
 
-    def get_dsa_private_key(self) -> rsa.PrivateKey:
-        return self._dsa_private_key
-
     def get_election_commissions(self) -> list[ElectionCommissionController]:
         return self._election_commissions
 
@@ -38,52 +32,53 @@ class CentralCommissionController:
             raise ValueError("Invalid value of election_commission_count argument.")
 
         for i in range(election_commissions_count):
-            self._election_commissions.append(ElectionCommissionController(i, self._dsa_public_key, self._voters.values()))
+            self._election_commissions.append(ElectionCommissionController(i, self._voters.values()))
 
         return self._election_commissions
 
-    def finish_elections(self, local_results: list[dict[int, PartialVote]]) -> None:
-        if local_results is None:
-            raise ValueError("local_results cannot be None.")
+    def finish_election(self, commissions_results: list[PartialVote]) -> None:
+        if commissions_results is None:
+            raise ValueError("commission_results cannot be None.")
 
         print("\nMERGING\n")
 
-        for local_result in local_results:
-            self._merge_votes(local_result)
+        for local_results in commissions_results:
+            self._merge_votes(local_results)
 
-        self._print_final_results()
+    def _merge_votes(self, commission_results: list[PartialVote]) -> None:
+        for vote in commission_results:
+            print(f"{vote.get_voter_id()}: ", end = '')
 
-    def _merge_votes(self, commission_results: dict[int, PartialVote]) -> None:
-        for key, value in commission_results.items():
-            print(f"{key}: ", end = '')
-
-            if key not in self._voters.values():
+            if vote.get_voter_id() not in self._voters.values():
                 print(f"{STATUS_ICON_REJECTED} (Invalid voter)")
                 continue
 
+            voter_votes_count: int = sum(1 for vote_payload in commission_results if vote_payload.get_voter_id() == vote.get_voter_id())
+
+            if voter_votes_count != len(self._election_commissions):
+                print(f"{STATUS_ICON_REJECTED} (Voting procedure violation)")
+                continue
+
             try:
-                value.decrypt(self._rsa_private_key)
+                vote.decrypt(self._rsa_private_key)
             except Exception:
                 print(f"{STATUS_ICON_REJECTED} (Decryption failed)")
                 continue
 
             print(STATUS_ICON_APPROVED)
-            self._final_results[key] = value.get_partial_candidate_id() * (self._final_results[key] if key in self._final_results.keys() else 1)
+            self._results[vote.get_voter_id()] = vote.get_partial_candidate_id() * (self._results[vote.get_voter_id()] if vote.get_voter_id() in self._results.keys() else 1)
 
-    def _print_final_results(self) -> None:
+    def print_results(self) -> None:
         print("\nFINAL VOTES\n")
 
-        for voter_id, candidate_id in self._final_results.items():
+        for voter_id, candidate_id in self._results.items():
             print(f"#{voter_id}: {candidate_id}")
 
         print("\nRESULTS\n")
 
-        results = Counter(self._final_results.values())
+        results = Counter(self._results.values())
 
         for candidate_id, vote_count in results.items():
-            if candidate_id not in self.get_candidates():
-                continue
-
             print(f"#{candidate_id}: {vote_count} votes")
 
     def register_voter(self, user: User) -> VoterController:
