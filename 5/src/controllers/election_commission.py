@@ -1,4 +1,3 @@
-from typing import Callable
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import dsa
 from helpers.codicons import *
@@ -6,21 +5,20 @@ from models import PartialVote, SignedPartialVote
 
 class ElectionCommissionController:
 
-    def __init__(self, id: int, dsa_public_key: dsa.DSAPublicKey, voters_ids: list[int], election_finished: Callable[[int, dict[int, PartialVote]], None]) -> 'ElectionCommissionController':
+    def __init__(self, id: int, dsa_public_key: dsa.DSAPublicKey, voters_ids: list[int]) -> 'ElectionCommissionController':
         if dsa_public_key is None:
             raise ValueError("dsa_public_key cannot be None")
 
         if voters_ids is None:
             raise ValueError("voters_ids cannot be None")
 
-        if election_finished is None:
-            raise ValueError("election_finished cannot be None")
-
         self._id: int = id
         self._voters_ids: list[int] = voters_ids
-        self._election_finished = election_finished
         self._votes: dict[int, PartialVote] = dict()
         self._dsa_public_key: dsa.DSAPublicKey = dsa_public_key
+
+    def get_votes(self) -> dict[int, PartialVote]:
+        return self._votes
 
     def register_vote(self, vote: SignedPartialVote) -> None:
         if vote is None:
@@ -36,9 +34,6 @@ class ElectionCommissionController:
 
         print(f"\r{STATUS_ICON_APPROVED}", end = '\n')
         self._votes[vote.get_partial_vote().get_voter_id()] = vote.get_partial_vote()
-
-        if len(self._votes) == len(self._voters_ids):
-            self._election_finished(self._id, self._votes)
 
     def _verify_signature(self, vote: SignedPartialVote) -> bool:
         print(f"|SIGNATURE VERIFICATION|: ", end = '')

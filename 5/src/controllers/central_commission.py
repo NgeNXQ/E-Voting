@@ -13,7 +13,6 @@ class CentralCommissionController:
         self._voters: dict[User, int] = dict()
         self._candidates: dict[User, int] = dict()
         self._final_results: dict[int, int] = dict()
-        self._intermediate_results: dict[int, dict[int, PartialVote]] = dict()
         self._rsa_public_key, self._rsa_private_key = rsa.newkeys(nbits = 1024)
         self._election_commissions: list[ElectionCommissionController] = list()
         self._dsa_private_key: dsa.DSAPrivateKey = dsa.generate_private_key(key_size = 1024)
@@ -39,26 +38,18 @@ class CentralCommissionController:
             raise ValueError("Invalid value of election_commission_count argument.")
 
         for i in range(election_commissions_count):
-            self._election_commissions.append(ElectionCommissionController(i, self._dsa_public_key, self._voters.values(), self._on_election_finished))
+            self._election_commissions.append(ElectionCommissionController(i, self._dsa_public_key, self._voters.values()))
 
         return self._election_commissions
 
-    def _on_election_finished(self, election_commission_id: int, votes: dict[int, PartialVote]) -> None:
-        if votes is None:
-            raise ValueError("votes cannot be None.")
-
-        self._intermediate_results[election_commission_id] = votes
-
-        if len(self._intermediate_results) != len(self._election_commissions):
-            return
-
-        for election_commission in self._election_commissions:
-            election_commission.print_intermediate_results()
+    def finish_elections(self, local_results: list[dict[int, PartialVote]]) -> None:
+        if local_results is None:
+            raise ValueError("local_results cannot be None.")
 
         print("\nMERGING\n")
 
-        for value in self._intermediate_results.values():
-            self._merge_votes(value)
+        for local_result in local_results:
+            self._merge_votes(local_result)
 
         self._print_final_results()
 
@@ -90,6 +81,9 @@ class CentralCommissionController:
         results = Counter(self._final_results.values())
 
         for candidate_id, vote_count in results.items():
+            if candidate_id not in self.get_candidates():
+                continue
+
             print(f"#{candidate_id}: {vote_count} votes")
 
     def register_voter(self, user: User) -> VoterController:
@@ -106,7 +100,7 @@ class CentralCommissionController:
             print(f"{STATUS_ICON_FAILURE} (User has been already registered as voter)")
             return None
 
-        voter_controller = VoterController((len(self._voters) + 1), self._election_commissions)
+        voter_controller = VoterController((len(self._voters) + 1))
         print(f"{STATUS_ICON_SUCCESS} ({voter_controller.get_id()})")
         self._voters[user] = voter_controller.get_id()
         return voter_controller

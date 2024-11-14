@@ -4,21 +4,16 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import dsa
 from helpers.divisors import get_factors_pairs
 from models import Candidate, PartialVote, SignedPartialVote
-from .election_commission import ElectionCommissionController
 
 class VoterController:
 
-    def __init__(self, id: int, election_commissions: list[ElectionCommissionController]) -> 'VoterController':
-        if election_commissions is None:
-            raise ValueError("election_commission is None.")
-
+    def __init__(self, id: int) -> 'VoterController':
         self._id = id
-        self._election_commissions = election_commissions
 
     def get_id(self) -> int:
         return self._id
 
-    def vote(self, candidate: Candidate, rsa_public_key: rsa.PublicKey, dsa_private_key: dsa.DSAPrivateKey) -> None:
+    def vote(self, candidate: Candidate, rsa_public_key: rsa.PublicKey, dsa_private_key: dsa.DSAPrivateKey) -> tuple[SignedPartialVote, SignedPartialVote]:
         if candidate is None:
             raise ValueError("candidate cannot be None.")
 
@@ -40,5 +35,4 @@ class VoterController:
         signed_vote_first = SignedPartialVote(vote_first, dsa_private_key.sign(hash(vote_first.get_voter_id()).to_bytes(length = 32), hashes.SHA256()))
         signed_vote_second = SignedPartialVote(vote_second, dsa_private_key.sign(hash(vote_second.get_voter_id()).to_bytes(length = 32), hashes.SHA256()))
 
-        self._election_commissions[0].register_vote(signed_vote_first)
-        self._election_commissions[1].register_vote(signed_vote_second)
+        return signed_vote_first, signed_vote_second

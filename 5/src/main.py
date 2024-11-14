@@ -1,12 +1,12 @@
 import rsa
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import dsa
-from models import Candidate, User, SignedPartialVote
+from models import Candidate, User
 from controllers import VoterController, CentralCommissionController, ElectionCommissionController
 
 if __name__ == "__main__":
     central_commission = CentralCommissionController()
-    election_commissions: list[ElectionCommissionController] = central_commission.init_election_commissions(2)
+    election_commission_0, election_commission_1 = central_commission.init_election_commissions(2)
 
     print("\nREGISTRATION\n")
 
@@ -20,41 +20,66 @@ if __name__ == "__main__":
     user_3 = User(True, False)
     user_4 = User(True, False)
     user_5 = User(True, False)
-    user_6 = User(False, False)
+    user_6 = User(True, False)
+    user_7 = User(False, False)
 
     voter_1: VoterController = central_commission.register_voter(user_2)
     voter_2: VoterController = central_commission.register_voter(user_3)
     voter_3: VoterController = central_commission.register_voter(user_4)
     voter_4: VoterController = central_commission.register_voter(user_5)
+    voter_5: VoterController = central_commission.register_voter(user_6)
+
     # Second registration
-    voter_0: VoterController = central_commission.register_voter(user_5)
+    voter_test_1: VoterController = central_commission.register_voter(user_6)
     # Not eligible for voting
-    voter_0: VoterController = central_commission.register_voter(user_6)
+    voter_test_2: VoterController = central_commission.register_voter(user_7)
 
     print("\nVOTING\n")
 
     # OK
-    voter_1.vote(candidate_1, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    votes_1 = voter_1.vote(candidate_1, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    election_commission_0.register_vote(votes_1[0])
+    election_commission_1.register_vote(votes_1[1])
 
     # Second attempt
-    voter_1.vote(candidate_1, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    votes_1 = voter_1.vote(candidate_1, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    election_commission_0.register_vote(votes_1[0])
+    election_commission_1.register_vote(votes_1[1])
 
     # Invalid encryption
     rsa_public_key, _ = rsa.newkeys(128)
-    voter_2.vote(candidate_2, rsa_public_key, central_commission.get_dsa_private_key())
+    votes_2 = voter_2.vote(candidate_2, rsa_public_key, central_commission.get_dsa_private_key())
+    election_commission_0.register_vote(votes_2[0])
+    election_commission_1.register_vote(votes_2[1])
 
     # Invalid signature
     dsa_private_key: dsa.DSAPrivateKey = dsa.generate_private_key(key_size = 1024)
     dsa_public_key: dsa.DSAPublicKey = dsa_private_key.public_key()
     dsa_private_key.sign(hash(1).to_bytes(length = 32), hashes.SHA256())
-    voter_3.vote(candidate_2, central_commission.get_rsa_public_key(), dsa_private_key)
+    votes_3 = voter_3.vote(candidate_2, central_commission.get_rsa_public_key(), dsa_private_key)
+    election_commission_0.register_vote(votes_3[0])
+    election_commission_1.register_vote(votes_3[1])
 
     # Unknown voter
-    unknown_voter = VoterController(0, election_commissions)
-    unknown_voter.vote(candidate_1, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    unknown_voter = VoterController(0)
+    unknown_votes = unknown_voter.vote(candidate_1, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    election_commission_0.register_vote(unknown_votes[0])
+    election_commission_1.register_vote(unknown_votes[1])
+
+    # Invalid procedure
+    votes_3 = voter_3.vote(candidate_2, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    election_commission_0.register_vote(votes_3[0])
 
     # OK
-    voter_3.vote(candidate_2, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    votes_4 = voter_4.vote(candidate_2, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    election_commission_0.register_vote(votes_4[0])
+    election_commission_1.register_vote(votes_4[1])
 
-    # OK
-    voter_4.vote(candidate_1, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    votes_5 = voter_5.vote(candidate_1, central_commission.get_rsa_public_key(), central_commission.get_dsa_private_key())
+    election_commission_0.register_vote(votes_5[0])
+    election_commission_1.register_vote(votes_5[1])
+
+    election_commission_0.print_intermediate_results()
+    election_commission_1.print_intermediate_results()
+
+    central_commission.finish_elections([election_commission_0.get_votes(), election_commission_1.get_votes()])
