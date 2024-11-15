@@ -1,4 +1,4 @@
-import rsa
+from utilities import rsa
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import dsa
 from models import Candidate, User
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     election_commission_1.register_vote(votes_1[1], voter_1.get_dsa_public_key())
 
     # Invalid encryption
-    rsa_public_key, _ = rsa.newkeys(128)
+    rsa_public_key, _ = rsa.generate_keys(128)
     votes_2 = voter_2.vote(candidate_2, rsa_public_key)
     election_commission_0.register_vote(votes_2[0], voter_2.get_dsa_public_key())
     election_commission_1.register_vote(votes_2[1], voter_2.get_dsa_public_key())
@@ -85,5 +85,6 @@ if __name__ == "__main__":
     election_commission_0.print_results()
     election_commission_1.print_results()
 
-    central_commission.finish_election([election_commission_0.get_votes() + election_commission_1.get_votes()])
+    central_commission.merge_votes(election_commission_0.get_votes() + election_commission_1.get_votes())
+    central_commission.decrypt_votes()
     central_commission.print_results()

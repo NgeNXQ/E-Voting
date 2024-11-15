@@ -1,4 +1,4 @@
-import rsa
+from utilities import rsa
 
 class PartialVote:
 
@@ -9,23 +9,20 @@ class PartialVote:
     def get_voter_id(self) -> int:
         return self._voter_id
 
-    def get_partial_candidate_id(self) -> int | bytes:
+    def get_partial_candidate_id(self) -> int:
         return self._partial_candidate_id
-
-    def get_signature(self) -> bytes:
-        return self._signature
 
     def encrypt(self, rsa_public_key: rsa.PublicKey) -> None:
         if rsa_public_key is None:
             raise ValueError("rsa_public_key cannot be None.")
 
-        self._partial_candidate_id = rsa.encrypt(self._partial_candidate_id.to_bytes(), rsa_public_key)
+        self._partial_candidate_id = rsa.encrypt(self._partial_candidate_id, rsa_public_key)
 
     def decrypt(self, rsa_private_key: rsa.PrivateKey) -> None:
         if rsa_private_key is None:
             raise ValueError("rsa_public_key cannot be None.")
 
-        self._partial_candidate_id = int.from_bytes(rsa.decrypt(self._partial_candidate_id, rsa_private_key))
+        self._partial_candidate_id = rsa.decrypt(self._partial_candidate_id, rsa_private_key)
 
 class SignedPartialVote:
 
