@@ -69,7 +69,7 @@ class ElectionCommissionController:
         print(f"\nINTERMEDIATE VOTES ({self._id})\n")
 
         for vote in self._results:
-            print(f"{vote.get_voter_id()}: {vote.get_partial_candidate_id()[:MARKER_SIZE]}")
+            print(f"{vote.get_voter_id()}: {str(vote.get_partial_candidate_id())[:MARKER_SIZE]}")
 
     def __repr__(self) -> str:
         return f"ElectionCommissionController_{self._id}"

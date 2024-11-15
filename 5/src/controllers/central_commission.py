@@ -1,6 +1,6 @@
 import random
 from collections import Counter
-import rsa
+from utilities import rsa
 from helpers.codicons import *
 from .voter import VoterController
 from models import User, Candidate, PartialVote
@@ -12,7 +12,7 @@ class CentralCommissionController:
         self._voters: dict[User, int] = dict()
         self._results: dict[int, int] = dict()
         self._candidates: dict[User, int] = dict()
-        self._rsa_public_key, self._rsa_private_key = rsa.newkeys(nbits = 1024)
+        self._rsa_public_key, self._rsa_private_key = rsa.generate_keys(1024)
         self._election_commissions: list[ElectionCommissionController] = list()
 
     def get_voters(self) -> list[int]:
@@ -36,37 +36,44 @@ class CentralCommissionController:
 
         return self._election_commissions
 
-    def finish_election(self, commissions_results: list[PartialVote]) -> None:
+    def merge_votes(self, commissions_results: list[PartialVote]) -> None:
         if commissions_results is None:
             raise ValueError("commission_results cannot be None.")
 
         print("\nMERGING\n")
 
-        for local_results in commissions_results:
-            self._merge_votes(local_results)
-
-    def _merge_votes(self, commission_results: list[PartialVote]) -> None:
-        for vote in commission_results:
+        for vote in commissions_results:
             print(f"{vote.get_voter_id()}: ", end = '')
 
             if vote.get_voter_id() not in self._voters.values():
                 print(f"{STATUS_ICON_REJECTED} (Invalid voter)")
                 continue
 
-            voter_votes_count: int = sum(1 for vote_payload in commission_results if vote_payload.get_voter_id() == vote.get_voter_id())
+            voter_votes_count: int = sum(1 for vote_payload in commissions_results if vote_payload.get_voter_id() == vote.get_voter_id())
 
             if voter_votes_count != len(self._election_commissions):
                 print(f"{STATUS_ICON_REJECTED} (Voting procedure violation)")
                 continue
 
-            try:
-                vote.decrypt(self._rsa_private_key)
-            except Exception:
+            self._results[vote.get_voter_id()] = int(vote.get_partial_candidate_id()) * (int(self._results[vote.get_voter_id()]) if vote.get_voter_id() in self._results.keys() else 1)
+            print(STATUS_ICON_APPROVED)
+
+    def decrypt_votes(self) -> None:
+        print("\nDECRYPTION\n")
+
+        results_copy: dict[int, int] = self._results.copy()
+
+        for voter_id, vote in results_copy.items():
+            print(f"{voter_id}: ", end = '')
+
+            self._results[voter_id] = rsa.decrypt(vote, self._rsa_private_key)
+
+            if self._results[voter_id] not in self._candidates.values():
                 print(f"{STATUS_ICON_REJECTED} (Decryption failed)")
+                self._results.pop(voter_id)
                 continue
 
             print(STATUS_ICON_APPROVED)
-            self._results[vote.get_voter_id()] = vote.get_partial_candidate_id() * (self._results[vote.get_voter_id()] if vote.get_voter_id() in self._results.keys() else 1)
 
     def print_results(self) -> None:
         print("\nFINAL VOTES\n")

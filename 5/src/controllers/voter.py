@@ -1,5 +1,5 @@
 import random
-import rsa
+from utilities import rsa
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import dsa
 from helpers.divisors import get_factors_pairs
